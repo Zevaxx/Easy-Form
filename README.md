@@ -1,54 +1,122 @@
-# React + TypeScript + Vite
+# Type-Safe Form Validation Library
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A strongly-typed form validation library for TypeScript that provides nested form structures with composable validation rules.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 🔒 Full TypeScript support with strong type inference
+- 🎯 Composable validation rules
+- 📦 Nested form structures support
+- 🛡️ Immutable data structures
+- 🔍 Path-based value access and updates
+- ⚡ Monadic error handling using `@sweet-monads/either`
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+npm install @sweet-monads/either
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Basic Usage
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+```typescript
+import { Form, FormField, FormFieldGroup } from './form';
+import { left, right } from '@sweet-monads/either';
+
+// Field validators
+const notEmpty = (value: string) => 
+  value.length > 0 
+    ? right(value)
+    : left({ message: 'Field cannot be empty' });
+
+const isValidAge = (value: number) =>
+  value >= 18
+    ? right(value)
+    : left({ message: 'Must be 18 or older' });
+
+// Group validator - Validates address completeness
+const addressValidator = (fields: any) => {
+  const hasStreet = fields.street.getValue().length > 0;
+  const hasCity = fields.city.getValue().length > 0;
+  return (hasStreet && hasCity)
+    ? right(fields)
+    : left({ message: 'Address must be complete' });
+};
+
+// Form validator - Ensures user is eligible
+const userEligibilityValidator = (fields: any) => {
+  const age = fields.age.getValue();
+  const hasAddress = Object.values(fields.address.getFields()).every(
+    (field: any) => field.getValue().length > 0
+  );
+  
+  return (age >= 18 && hasAddress)
+    ? right(fields)
+    : left({ message: 'User must be 18+ and have a complete address' });
+};
+
+// Create a form with nested validation
+const userForm = new Form({
+  name: new FormField('John', notEmpty),
+  age: new FormField(25, isValidAge),
+  address: new FormFieldGroup({
+    street: new FormField('123 Main St', notEmpty),
+    city: new FormField('New York', notEmpty)
+  }, addressValidator)
+}, userEligibilityValidator);
+
+// Update and validate
+const updatedForm = userForm
+  .setFieldValue('age', 16)
+  .setValueByPath('address.street', '');
+
+const result = updatedForm.validateForm();
+// result will be Left({ message: 'User must be 18+ and have a complete address' })
 ```
+
+### FormFieldGroup
+
+Groups related fields together with group-level validation:
+
+```typescript
+const addressGroup = new FormFieldGroup({
+  street: new FormField(''),
+  city: new FormField('')
+}, groupValidator);
+```
+
+### Validation
+
+The library uses the Either monad for validation results:
+- `Right`: Successful validation
+- `Left`: Validation error with message
+
+### Path-based Access
+
+Access and update nested values using dot notation:
+
+```typescript
+form.setValueByPath('address.street', '123 Main St');
+form.getValueByPath('address.street');
+```
+
+## Type Safety
+
+The library provides full type inference for:
+- Form structure
+- Field values
+- Validation results
+- Path strings for nested access
+
+## Testing
+
+The library includes a comprehensive test suite. Run tests with:
+
+```bash
+npm test
+```
+
+## License
+
+MIT
