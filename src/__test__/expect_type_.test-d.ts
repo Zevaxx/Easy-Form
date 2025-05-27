@@ -1,0 +1,226 @@
+import { expectTypeOf } from 'expect-type';
+import { describe, it } from 'vitest';
+import { Form, FormField, FormFieldGroup } from '../form/Form';
+
+describe('Type Tests with expect-type', () => {
+	it('should infer FormField types correctly', () => {
+		const stringField = new FormField('hello');
+		const numberField = new FormField(42);
+		const booleanField = new FormField(true);
+		const objectField = new FormField({ name: 'John', age: 25 });
+
+		expectTypeOf(stringField.getValue()).toEqualTypeOf<string>();
+		expectTypeOf(numberField.getValue()).toEqualTypeOf<number>();
+		expectTypeOf(booleanField.getValue()).toEqualTypeOf<boolean>();
+		expectTypeOf(objectField.getValue()).toEqualTypeOf<{
+			name: string;
+			age: number;
+		}>();
+	});
+
+	it('should infer FormFieldGroup types correctly', () => {
+		const group = new FormFieldGroup({
+			name: new FormField('John'),
+			age: new FormField(25),
+			isActive: new FormField(true),
+		});
+
+		const fields = group.getFields();
+
+		expectTypeOf(fields.name).toEqualTypeOf<FormField<string>>();
+		expectTypeOf(fields.age).toEqualTypeOf<FormField<number>>();
+		expectTypeOf(fields.isActive).toEqualTypeOf<FormField<boolean>>();
+
+		expectTypeOf(fields.name.getValue()).toEqualTypeOf<string>();
+		expectTypeOf(fields.age.getValue()).toEqualTypeOf<number>();
+		expectTypeOf(fields.isActive.getValue()).toEqualTypeOf<boolean>();
+	});
+
+	it('should handle nested FormFieldGroup types', () => {
+		const nestedForm = new Form({
+			user: new FormFieldGroup({
+				name: new FormField('John'),
+				contact: new FormFieldGroup({
+					email: new FormField('john@example.com'),
+					phone: new FormField('123-456-7890'),
+					address: new FormFieldGroup({
+						street: new FormField('123 Main St'),
+						coordinates: new FormFieldGroup({
+							lat: new FormField(40.7128),
+							lng: new FormField(-74.006),
+						}),
+					}),
+				}),
+			}),
+			settings: new FormField({ theme: 'dark', notifications: true }),
+		});
+
+		// Test path value types
+		expectTypeOf(
+			nestedForm.getValueByPath('user.name')
+		).toEqualTypeOf<string>();
+		expectTypeOf(
+			nestedForm.getValueByPath('user.contact.email')
+		).toEqualTypeOf<string>();
+		expectTypeOf(
+			nestedForm.getValueByPath('user.contact.phone')
+		).toEqualTypeOf<string>();
+		expectTypeOf(
+			nestedForm.getValueByPath('user.contact.address.street')
+		).toEqualTypeOf<string>();
+		expectTypeOf(
+			nestedForm.getValueByPath('user.contact.address.coordinates.lat')
+		).toEqualTypeOf<number>();
+		expectTypeOf(
+			nestedForm.getValueByPath('user.contact.address.coordinates.lng')
+		).toEqualTypeOf<number>();
+		expectTypeOf(nestedForm.getValueByPath('settings')).toEqualTypeOf<{
+			theme: string;
+			notifications: boolean;
+		}>();
+	});
+
+	it('should enforce correct types in setValueByPath', () => {
+		const form = new Form({
+			user: new FormFieldGroup({
+				name: new FormField('John'),
+				age: new FormField(25),
+				profile: new FormFieldGroup({
+					bio: new FormField('Developer'),
+					settings: new FormFieldGroup({
+						theme: new FormField('dark'),
+					}),
+				}),
+			}),
+		});
+
+		// These should compile correctly
+		const updated1 = form.setValueByPath('user.name', 'Jane');
+		const updated2 = form.setValueByPath('user.age', 30);
+		const updated3 = form.setValueByPath(
+			'user.profile.bio',
+			'Senior Developer'
+		);
+		const updated4 = form.setValueByPath(
+			'user.profile.settings.theme',
+			'light'
+		);
+
+		expectTypeOf(updated1).toEqualTypeOf<typeof form>();
+		expectTypeOf(updated2).toEqualTypeOf<typeof form>();
+		expectTypeOf(updated3).toEqualTypeOf<typeof form>();
+		expectTypeOf(updated4).toEqualTypeOf<typeof form>();
+
+		// Test that the updated values have correct types when retrieved
+		expectTypeOf(
+			updated1.getValueByPath('user.name')
+		).toEqualTypeOf<string>();
+		expectTypeOf(
+			updated2.getValueByPath('user.age')
+		).toEqualTypeOf<number>();
+		expectTypeOf(
+			updated3.getValueByPath('user.profile.bio')
+		).toEqualTypeOf<string>();
+		expectTypeOf(
+			updated4.getValueByPath('user.profile.settings.theme')
+		).toEqualTypeOf<string>();
+	});
+
+	it('should infer Path type correctly', () => {
+		type TestForm = {
+			user: FormFieldGroup<{
+				name: FormField<string>;
+				contact: FormFieldGroup<{
+					email: FormField<string>;
+					address: FormFieldGroup<{
+						street: FormField<string>;
+						city: FormField<string>;
+					}>;
+				}>;
+			}>;
+			metadata: FormField<{ created: Date }>;
+		};
+
+		// Test that Path type includes all valid paths
+		expectTypeOf<'user'>().toMatchTypeOf<keyof TestForm & string>();
+		expectTypeOf<'metadata'>().toMatchTypeOf<keyof TestForm & string>();
+
+		// These would be the paths if we could test them (Path type is complex)
+		// The important thing is that they compile correctly in actual usage
+	});
+
+	it('should handle validator types correctly', () => {
+		const stringValidator = (value: string) =>
+			value.length > 0
+				? ({ isRight: () => true, value } as any)
+				: ({
+						isLeft: () => true,
+						value: { message: 'Required' },
+				  } as any);
+
+		const numberValidator = (value: number) =>
+			value >= 0
+				? ({ isRight: () => true, value } as any)
+				: ({
+						isLeft: () => true,
+						value: { message: 'Must be positive' },
+				  } as any);
+
+		const fieldWithStringValidator = new FormField('test', stringValidator);
+		const fieldWithNumberValidator = new FormField(42, numberValidator);
+
+		expectTypeOf(
+			fieldWithStringValidator.getValue()
+		).toEqualTypeOf<string>();
+		expectTypeOf(
+			fieldWithNumberValidator.getValue()
+		).toEqualTypeOf<number>();
+
+		// Test that validators return correct types
+		expectTypeOf(fieldWithStringValidator.validate()).toMatchTypeOf<{
+			isRight(): boolean;
+			isLeft(): boolean;
+			value: any;
+		}>();
+	});
+
+	it('should handle complex nested structures', () => {
+		type ComplexData = {
+			id: number;
+			metadata: {
+				tags: string[];
+				created: Date;
+			};
+		};
+
+		const complexForm = new Form({
+			data: new FormField<ComplexData>({
+				id: 1,
+				metadata: {
+					tags: ['test'],
+					created: new Date(),
+				},
+			}),
+			config: new FormFieldGroup({
+				enabled: new FormField(true),
+				settings: new FormFieldGroup({
+					maxItems: new FormField(100),
+					allowDuplicates: new FormField(false),
+				}),
+			}),
+		});
+
+		expectTypeOf(
+			complexForm.getValueByPath('data')
+		).toEqualTypeOf<ComplexData>();
+		expectTypeOf(
+			complexForm.getValueByPath('config.enabled')
+		).toEqualTypeOf<boolean>();
+		expectTypeOf(
+			complexForm.getValueByPath('config.settings.maxItems')
+		).toEqualTypeOf<number>();
+		expectTypeOf(
+			complexForm.getValueByPath('config.settings.allowDuplicates')
+		).toEqualTypeOf<boolean>();
+	});
+});

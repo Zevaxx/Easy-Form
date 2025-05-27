@@ -150,3 +150,156 @@ describe('Form Validation', () => {
 		});
 	});
 });
+
+describe('FormField', () => {
+	it('should create a field with initial value', () => {
+		const field = new FormField('test value');
+		expect(field.getValue()).toBe('test value');
+	});
+
+	it('should validate successfully with no validators', () => {
+		const field = new FormField('test');
+		const result = field.validate();
+		expect(result.isRight()).toBe(true);
+		if (result.isRight()) {
+			expect(result.value).toBe('test');
+		}
+	});
+
+	it('should fail validation with failing validator', () => {
+		const validator = (value: string) =>
+			value.length > 5 ? right(value) : left({ message: 'Too short' });
+
+		const field = new FormField('hi', validator);
+		const result = field.validate();
+
+		expect(result.isLeft()).toBe(true);
+		if (result.isLeft()) {
+			expect(result.value.message).toBe('Too short');
+		}
+	});
+
+	it('should update value correctly', () => {
+		const field = new FormField('old');
+		const newField = field.setNewValue('new');
+
+		expect(field.getValue()).toBe('old'); // Original unchanged
+		expect(newField.getValue()).toBe('new'); // New instance updated
+	});
+});
+
+describe('FormFieldGroup', () => {
+	it('should create group with multiple fields', () => {
+		const group = new FormFieldGroup({
+			name: new FormField('John'),
+			age: new FormField(25),
+		});
+
+		const fields = group.getFields();
+		expect(fields.name.getValue()).toBe('John');
+		expect(fields.age.getValue()).toBe(25);
+	});
+
+	it('should validate all fields in group', () => {
+		const nameValidator = (value: string) =>
+			value.length > 0
+				? right(value)
+				: left({ message: 'Name required' });
+
+		const ageValidator = (value: number) =>
+			value >= 0
+				? right(value)
+				: left({ message: 'Age must be positive' });
+
+		const group = new FormFieldGroup({
+			name: new FormField('John', nameValidator),
+			age: new FormField(25, ageValidator),
+		});
+
+		const result = group.validateGroup();
+		expect(result.isRight()).toBe(true);
+	});
+
+	it('should fail validation if any field fails', () => {
+		const nameValidator = (value: string) =>
+			value.length > 0
+				? right(value)
+				: left({ message: 'Name required' });
+
+		const group = new FormFieldGroup({
+			name: new FormField('', nameValidator), // This will fail
+			age: new FormField(25),
+		});
+
+		const result = group.validateGroup();
+		expect(result.isLeft()).toBe(true);
+	});
+});
+
+describe('Form', () => {
+	it('should handle nested field access with paths', () => {
+		const form = new Form({
+			user: new FormFieldGroup({
+				name: new FormField('John'),
+				address: new FormFieldGroup({
+					street: new FormField('123 Main St'),
+					coordinates: new FormFieldGroup({
+						lat: new FormField(40.7128),
+						lng: new FormField(-74.006),
+					}),
+				}),
+			}),
+		});
+
+		// Test path access
+		expect(form.getValueByPath('user.name')).toBe('John');
+		expect(form.getValueByPath('user.address.street')).toBe('123 Main St');
+		expect(form.getValueByPath('user.address.coordinates.lat')).toBe(
+			40.7128
+		);
+	});
+
+	it('should update nested values correctly', () => {
+		const form = new Form({
+			user: new FormFieldGroup({
+				name: new FormField('John'),
+				address: new FormFieldGroup({
+					street: new FormField('123 Main St'),
+				}),
+			}),
+		});
+
+		const updatedForm = form.setValueByPath(
+			'user.address.street',
+			'456 Oak Ave'
+		);
+
+		// Original form unchanged
+		expect(form.getValueByPath('user.address.street')).toBe('123 Main St');
+
+		// New form updated
+		expect(updatedForm.getValueByPath('user.address.street')).toBe(
+			'456 Oak Ave'
+		);
+
+		// Other values unchanged
+		expect(updatedForm.getValueByPath('user.name')).toBe('John');
+	});
+
+	it('should validate entire form', () => {
+		const emailValidator = (value: string) =>
+			value.includes('@')
+				? right(value)
+				: left({ message: 'Invalid email' });
+
+		const form = new Form({
+			email: new FormField('test@example.com', emailValidator),
+			profile: new FormFieldGroup({
+				name: new FormField('John'),
+			}),
+		});
+
+		const result = form.validateForm();
+		expect(result.isRight()).toBe(true);
+	});
+});
