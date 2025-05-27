@@ -1,22 +1,22 @@
 # Type-Safe Form Validation Library
 
-A strongly-typed form validation library for TypeScript that provides nested form structures with composable validation rules.
+A strongly-typed TypeScript form validation library that provides nested form structures with composable validation rules.
 
 ## Features
 
-- 🔒 Full TypeScript support with strong type inference
+- 🔒 Full TypeScript support with deep type inference
 - 🎯 Composable validation rules
-- 📦 Nested form structures support
+- 📝 Nested form structures
+- 🌳 Path-based value access and updates
 - 🛡️ Immutable data structures
-- 🔍 Path-based value access and updates
-- ⚡ Monadic error handling using `@sweet-monads/either`
+- ⚡ Monadic validation using `@sweet-monads/either`
+- 🧪 Comprehensive test coverage
 
 ## Installation
 
 ```bash
-npm install @sweet-monads/either
+TBC
 ```
-
 
 ## Basic Usage
 
@@ -24,99 +24,91 @@ npm install @sweet-monads/either
 import { Form, FormField, FormFieldGroup } from './form';
 import { left, right } from '@sweet-monads/either';
 
-// Field validators
+// Define validators
 const notEmpty = (value: string) => 
   value.length > 0 
-    ? right(value)
+    ? right(value) 
     : left({ message: 'Field cannot be empty' });
 
-const isValidAge = (value: number) =>
+const isAdult = (value: number) =>
   value >= 18
     ? right(value)
     : left({ message: 'Must be 18 or older' });
 
-// Group validator - Validates address completeness
-const addressValidator = (fields: any) => {
-  const hasStreet = fields.street.getValue().length > 0;
-  const hasCity = fields.city.getValue().length > 0;
-  return (hasStreet && hasCity)
-    ? right(fields)
-    : left({ message: 'Address must be complete' });
-};
-
-// Form validator - Ensures user is eligible
-const userEligibilityValidator = (fields: any) => {
-  const age = fields.age.getValue();
-  const hasAddress = Object.values(fields.address.getFields()).every(
-    (field: any) => field.getValue().length > 0
-  );
-  
-  return (age >= 18 && hasAddress)
-    ? right(fields)
-    : left({ message: 'User must be 18+ and have a complete address' });
-};
-
-// Create a form with nested validation
+// Create a form with nested structure
 const userForm = new Form({
-  name: new FormField('John', notEmpty),
-  age: new FormField(25, isValidAge),
+  name: new FormField('', notEmpty),
+  age: new FormField(25, isAdult),
   address: new FormFieldGroup({
-    street: new FormField('123 Main St', notEmpty),
-    city: new FormField('New York', notEmpty)
-  }, addressValidator)
-}, userEligibilityValidator);
+    street: new FormField('', notEmpty),
+    city: new FormField('', notEmpty)
+  })
+});
 
-// Update and validate
+// Update values using type-safe paths
 const updatedForm = userForm
-  .setFieldValue('age', 16)
-  .setValueByPath('address.street', '');
+  .setValueByPath('name', 'John')
+  .setValueByPath('address.street', '123 Main St');
 
+// Validate the entire form
 const result = updatedForm.validateForm();
-// result will be Left({ message: 'User must be 18+ and have a complete address' })
+```
+
+## API Reference
+
+### FormField
+
+Basic form field that holds a single value with optional validators:
+
+```typescript
+const nameField = new FormField('', notEmpty);
+const ageField = new FormField(25, isAdult);
 ```
 
 ### FormFieldGroup
 
-Groups related fields together with group-level validation:
+Groups related fields with optional group-level validation:
 
 ```typescript
 const addressGroup = new FormFieldGroup({
   street: new FormField(''),
   city: new FormField('')
-}, groupValidator);
+}, validateAddressGroup);
 ```
 
-### Validation
+### Form
 
-The library uses the Either monad for validation results:
-- `Right`: Successful validation
-- `Left`: Validation error with message
-
-### Path-based Access
-
-Access and update nested values using dot notation:
+Top-level form container with form-wide validation:
 
 ```typescript
-form.setValueByPath('address.street', '123 Main St');
-form.getValueByPath('address.street');
+const form = new Form({
+  user: new FormFieldGroup({
+    name: new FormField(''),
+    email: new FormField('')
+  })
+}, validateUserForm);
+```
+
+### Path-based Operations
+
+Access and update nested values using type-safe paths:
+
+```typescript
+// Get values
+const name = form.getValueByPath('user.name');
+const email = form.getValueByPath('user.email');
+
+// Update values
+const updated = form
+  .setValueByPath('user.name', 'John')
+  .setValueByPath('user.email', 'john@example.com');
 ```
 
 ## Type Safety
 
-The library provides full type inference for:
+The library provides complete type inference for:
 - Form structure
 - Field values
 - Validation results
-- Path strings for nested access
-
-## Testing
-
-The library includes a comprehensive test suite. Run tests with:
-
-```bash
-npm test
-```
-
-## License
-
-MIT
+- Path strings
+- Update operations
