@@ -6,38 +6,13 @@ type FailedMessage = {
 
 type ValueValidator<R> = (value: R) => Either<FailedMessage, R>;
 
-// Tipo para paths de string (ej: "user.name")
-type PathValueTypeString<
-	T,
-	S extends string
-> = S extends `${infer K}.${infer Rest}`
-	? K extends keyof T
-		? PathValueTypeString<ExtractFieldType<T[K]>, Rest>
-		: never
-	: S extends keyof T
-	? ExtractFieldValue<T[S]>
-	: never;
-
-// Extrae el tipo del valor de un FormField o FormFieldGroup
-type ExtractFieldValue<F> = F extends FormField<infer R>
-	? R
-	: F extends FormFieldGroup<infer G>
-	? ExtractGroupValues<G>
-	: never;
-
-// Extrae el tipo de estructura de un FormField o FormFieldGroup para navegación
-type ExtractFieldType<F> = F extends FormField<infer R>
+type FormFieldValueType<F> = F extends FormField<infer R>
 	? R
 	: F extends FormFieldGroup<infer G>
 	? G
 	: never;
 
-// Extrae los valores de un FormFieldGroup
-type ExtractGroupValues<
-	T extends Record<string, FormField<unknown> | FormFieldGroup<any>>
-> = {
-	[K in keyof T]: ExtractFieldValue<T[K]>;
-};
+type FormTree = Record<string, FormField<any> | FormFieldGroup<any>>;
 
 class FormField<R> {
 	private validators: ValueValidator<R>[];
@@ -61,49 +36,7 @@ class FormField<R> {
 		new FormField(newValue, this.validators);
 }
 
-type FormFieldValueType<F> = F extends FormField<infer R>
-	? R
-	: F extends FormFieldGroup<infer G>
-	? G
-	: never;
-
-type Path<T, Depth extends number = 5> = [Depth] extends [0]
-	? never
-	: {
-			[K in keyof T & string]: T[K] extends FormField<any>
-				? K
-				: T[K] extends FormFieldGroup<any>
-				?
-						| K
-						| `${K}.${Path<
-								T[K] extends FormFieldGroup<infer G>
-									? G
-									: never,
-								Depth extends 1
-									? 0
-									: Depth extends number
-									? 1
-									: never
-						  > &
-								string}`
-				: never;
-	  }[keyof T & string];
-
-type PathValue<T, P extends Path<T>> = P extends keyof T
-	? T[P] extends FormField<infer R>
-		? R
-		: never
-	: P extends `${infer K}.${infer Rest}`
-	? K extends keyof T
-		? T[K] extends FormFieldGroup<infer G>
-			? PathValue<G, Rest & Path<G>>
-			: never
-		: never
-	: never;
-
-class FormFieldGroup<
-	T extends Record<string, FormField<any> | FormFieldGroup<any>>
-> {
+class FormFieldGroup<T extends FormTree> {
 	private groupValidators: ValueValidator<T>[];
 
 	constructor(
@@ -117,9 +50,6 @@ class FormFieldGroup<
 
 	getFields = (): T => this.fields;
 
-	// Expose validators for internal access
-	getGroupValidators = (): ValueValidator<T>[] => this.groupValidators;
-
 	validateGroup = (): Either<FailedMessage, T> => {
 		const fieldValidationResults = Object.values(this.fields).reduce<
 			Either<FailedMessage, T>
@@ -128,7 +58,9 @@ class FormFieldGroup<
 				acc.chain(() =>
 					field instanceof FormField
 						? field.validate().map(() => this.fields)
-						: field.validateGroup().map(() => this.fields)
+						: field instanceof FormFieldGroup
+						? field.validateGroup().map(() => this.fields)
+						: right(this.fields)
 				),
 			right(this.fields)
 		);
@@ -170,7 +102,32 @@ class FormFieldGroup<
 	};
 }
 
-class Form<T extends Record<string, FormField<any> | FormFieldGroup<any>>> {
+type Path<T extends FormTree> = {
+	[K in keyof T]: T[K] extends FormField<any>
+		? `${K & string}`
+		: T[K] extends FormFieldGroup<infer G>
+		? `${K & string}.${Path<G>}`
+		: never;
+}[keyof T];
+
+type PathValue<
+	T extends FormTree,
+	P extends string
+> = P extends `${infer Head}.${infer Tail}`
+	? Head extends keyof T
+		? T[Head] extends FormFieldGroup<infer G>
+			? PathValue<G, Tail>
+			: never
+		: never
+	: P extends keyof T
+	? T[P] extends FormField<infer V>
+		? V
+		: T[P] extends FormFieldGroup<infer G>
+		? G
+		: never
+	: never;
+
+class Form<T extends FormTree> {
 	private formValidators: ValueValidator<T>[];
 
 	constructor(
@@ -192,7 +149,9 @@ class Form<T extends Record<string, FormField<any> | FormFieldGroup<any>>> {
 				acc.chain(() =>
 					field instanceof FormField
 						? field.validate().map(() => this.fields)
-						: field.validateGroup().map(() => this.fields)
+						: field instanceof FormFieldGroup
+						? field.validateGroup().map(() => this.fields)
+						: right(this.fields)
 				),
 			right(this.fields)
 		);
@@ -205,36 +164,6 @@ class Form<T extends Record<string, FormField<any> | FormFieldGroup<any>>> {
 		return fieldValidationResults.chain(() => formValidationResult);
 	};
 
-	// Método simple para fields de primer nivel
-	setFieldValue = <K extends keyof T>(
-		fieldName: K,
-		newValue: FormFieldValueType<T[K]>
-	): Form<T> => {
-		const currentField = this.fields[fieldName];
-
-		let updatedField: T[K];
-
-		if (currentField instanceof FormField) {
-			updatedField = currentField.setNewValue(newValue) as T[K];
-		} else if (currentField instanceof FormFieldGroup) {
-			throw new Error(
-				'Cannot directly set value on FormFieldGroup. Use setValueByPath instead.'
-			);
-		} else {
-			throw new Error(`Unsupported field type for ${String(fieldName)}`);
-		}
-
-		return new Form(
-			{
-				...this.fields,
-				[fieldName]: updatedField,
-			},
-			this.formValidators
-		);
-	};
-
-	// Método avanzado usando paths para campos anidados
-
 	setValueByPath = <P extends Path<T>>(
 		path: P,
 		newValue: PathValue<T, P>
@@ -243,17 +172,20 @@ class Form<T extends Record<string, FormField<any> | FormFieldGroup<any>>> {
 		const updatedFields = this.updateNestedFieldTyped(
 			this.fields,
 			pathArray,
+			path,
 			newValue
 		);
 		return new Form(updatedFields, this.formValidators);
 	};
 
 	private updateNestedFieldTyped = <
-		Obj extends Record<string, FormField<any> | FormFieldGroup<any>>
+		Obj extends FormTree,
+		P extends Path<Obj>
 	>(
 		obj: Obj,
 		path: string[],
-		newValue: any
+		fullPath: P,
+		newValue: PathValue<Obj, P>
 	): Obj => {
 		if (path.length === 0) {
 			throw new Error('Invalid path: cannot replace entire object');
@@ -280,14 +212,7 @@ class Form<T extends Record<string, FormField<any> | FormFieldGroup<any>>> {
 		if (current instanceof FormFieldGroup) {
 			return {
 				...obj,
-				[key]: new FormFieldGroup(
-					this.updateNestedFieldTyped(
-						current.getFields(),
-						tail,
-						newValue
-					),
-					current.getGroupValidators()
-				),
+				[key]: current.setNewValue(fullPath, newValue),
 			};
 		}
 
@@ -299,13 +224,19 @@ class Form<T extends Record<string, FormField<any> | FormFieldGroup<any>>> {
 		return this.getNestedValue(this.fields, pathArray);
 	};
 
-	private getNestedValue = (
-		obj: Record<string, any>,
+	private getNestedValue = <Obj extends FormTree, R>(
+		obj: Obj,
 		path: string[]
-	): any => {
-		if (path.length === 0) return obj;
+	): R => {
+		if (path.length === 0) {
+			throw new Error('Invalid path: empty path');
+		}
 
 		const [head, ...tail] = path;
+		if (!(head in obj)) {
+			throw new Error(`Invalid path: key '${head}' not found`);
+		}
+
 		const current = obj[head];
 
 		if (current instanceof FormField) {
@@ -322,32 +253,5 @@ class Form<T extends Record<string, FormField<any> | FormFieldGroup<any>>> {
 		return this.getNestedValue(current, tail);
 	};
 }
-
-// Ejemplo de uso:
-/*
-const userForm = new Form({
-	name: new FormField('John', []),
-	address: new FormFieldGroup({
-		street: new FormField('123 Main St', []),
-		city: new FormField('New York', []),
-		coordinates: new FormFieldGroup({
-			lat: new FormField(40.7128, []),
-			lng: new FormField(-74.0060, [])
-		})
-	})
-});
-
-// Actualizar campo simple
-const updatedForm1 = userForm.setFieldValue('name', 'Jane');
-
-// Actualizar campo anidado usando path
-const updatedForm2 = userForm.setValueByPath('address.street', '456 Oak Ave');
-const updatedForm3 = userForm.setValueByPath('address.coordinates.lat', 41.8781);
-
-// Obtener valores
-const name = userForm.getValueByPath('name'); // 'John'
-const street = userForm.getValueByPath('address.street'); // '123 Main St'
-const lat = userForm.getValueByPath('address.coordinates.lat'); // 40.7128
-*/
 
 export { Form, FormField, FormFieldGroup };

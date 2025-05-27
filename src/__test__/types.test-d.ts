@@ -54,7 +54,8 @@ expectError(nestedForm.getValueByPath('user.address.coordinates.invalid'));
 
 // Test setValueByPath type safety
 const updatedForm1 = nestedForm.setValueByPath('user.name', 'Jane');
-expectType < Form < typeof nestedForm.getForm() >> updatedForm1;
+
+expectType<Form<typeof nestedForm.getForm()>>(updatedForm1);
 
 const updatedForm2 = nestedForm.setValueByPath(
 	'user.address.coordinates.lat',
@@ -75,12 +76,12 @@ const simpleForm = new Form({
 	age: new FormField(25),
 });
 
-const updatedSimple = simpleForm.setFieldValue('name', 'Jane');
+const updatedSimple = simpleForm.setValueByPath('name', 'Jane');
 expectType < Form < typeof simpleForm.getForm() >> updatedSimple;
 
 // Test que setFieldValue rechace tipos incorrectos
-expectError(simpleForm.setFieldValue('name', 123)); // string expected
-expectError(simpleForm.setFieldValue('age', 'invalid')); // number expected
+expectError(simpleForm.setValueByPath('name', 123)); // string expected
+expectError(simpleForm.setValueByPath('age', 'invalid')); // number expected
 
 // Test validator types
 import { Either } from '@sweet-monads/either';
@@ -103,18 +104,18 @@ expectError(
 );
 
 // Test Path type generation
-type TestFormType = {
-	user: FormFieldGroup<{
-		name: FormField<string>;
-		profile: FormFieldGroup<{
-			bio: FormField<string>;
-			settings: FormFieldGroup<{
-				theme: FormField<string>;
-			}>;
-		}>;
-	}>;
-	count: FormField<number>;
-};
+// type TestFormType = {
+// 	user: FormFieldGroup<{
+// 		name: FormField<string>;
+// 		profile: FormFieldGroup<{
+// 			bio: FormField<string>;
+// 			settings: FormFieldGroup<{
+// 				theme: FormField<string>;
+// 			}>;
+// 		}>;
+// 	}>;
+// 	count: FormField<number>;
+// };
 
 // Paths válidos que deberían ser permitidos
 expectAssignable<'user'>('user' as const);

@@ -28,14 +28,14 @@ describe('Form Validation', () => {
 
 	it('should validate field with valid input', () => {
 		const form = createBasicForm();
-		const updatedForm = form.setFieldValue('name', 'John');
+		const updatedForm = form.setValueByPath('name', 'John');
 		const result = updatedForm.validateForm();
 		expect(result.isRight()).toBe(true);
 	});
 
 	it('should handle field value updates', () => {
 		const form = createBasicForm();
-		const updatedForm = form.setFieldValue('name', 'John');
+		const updatedForm = form.setValueByPath('name', 'John');
 		expect(updatedForm.getForm().name.getValue()).toBe('John');
 	});
 
@@ -83,16 +83,16 @@ describe('Form Validation', () => {
 
 		it('should validate matching passwords', () => {
 			let form = createPasswordForm()
-				.setFieldValue('password', 'secret')
-				.setFieldValue('confirmPassword', 'secret');
+				.setValueByPath('password', 'secret')
+				.setValueByPath('confirmPassword', 'secret');
 			const result = form.validateForm();
 			expect(result.isRight()).toBe(true);
 		});
 
 		it('should fail validation for non-matching passwords', () => {
 			let form = createPasswordForm()
-				.setFieldValue('password', 'secret1')
-				.setFieldValue('confirmPassword', 'secret2');
+				.setValueByPath('password', 'secret1')
+				.setValueByPath('confirmPassword', 'secret2');
 			const result = form.validateForm();
 			expect(result.isLeft()).toBe(true);
 		});
@@ -137,14 +137,14 @@ describe('Form Validation', () => {
 
 		it('should validate complex form with valid inputs', () => {
 			const form = createComplexForm()
-				.setFieldValue('name', 'Test')
+				.setValueByPath('name', 'Test')
 				.setValueByPath('items.item1', 'Item 1');
 			const result = form.validateForm();
 			expect(result.isRight()).toBe(true);
 		});
 
 		it('should fail validation if no items are provided', () => {
-			const form = createComplexForm().setFieldValue('name', 'Test');
+			const form = createComplexForm().setValueByPath('name', 'Test');
 			const result = form.validateForm();
 			expect(result.isLeft()).toBe(true);
 		});
