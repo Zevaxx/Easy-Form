@@ -1,8 +1,9 @@
 {
-	"name": "form-project",
-	"private": true,
-	"version": "0.0.0",
+	"name": "easy-form",
+	"version": "0.0.1",
 	"type": "module",
+	"author": "Sebastián Díaz <sebastian88@gmail.com>",
+	"description": "A simple form library for React",
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc -b && vite build",
