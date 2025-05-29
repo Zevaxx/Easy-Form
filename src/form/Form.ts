@@ -99,7 +99,10 @@ abstract class FormBase<T extends FormTree> {
 
 		if (current instanceof FormField) {
 			if (tail.length === 0) {
-				return { ...obj, [key]: current.setNewValue(newValue) };
+				return {
+					...obj,
+					[key]: setNewValueInternal(current, newValue),
+				};
 			}
 			throw new Error(`Cannot traverse deeper into FormField at ${head}`);
 		}
@@ -114,6 +117,13 @@ abstract class FormBase<T extends FormTree> {
 		throw new Error(`Unsupported field type at path: ${head}`);
 	};
 }
+
+const setNewValueInternal = <R>(
+	field: FormField<R>,
+	value: R
+): FormField<R> => {
+	return new FormField(value, field['validators']);
+};
 
 class FormField<R> {
 	private validators: ValueValidator<R>[];
@@ -132,10 +142,6 @@ class FormField<R> {
 			(acc, validator) => acc.chain(validator),
 			right(this.value)
 		);
-
-	setNewValue(value: R): FormField<R> {
-		return new FormField(value, this.validators);
-	}
 }
 
 class FormFieldGroup<T extends FormTree> extends FormBase<T> {

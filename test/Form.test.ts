@@ -179,13 +179,6 @@ describe('FormField', () => {
 		}
 	});
 
-	it('should update value correctly', () => {
-		const field = new FormField('old');
-		const newField = field.setNewValue('new');
-
-		expect(field.getValue()).toBe('old'); // Original unchanged
-		expect(newField.getValue()).toBe('new'); // New instance updated
-	});
 });
 
 describe('FormFieldGroup', () => {
