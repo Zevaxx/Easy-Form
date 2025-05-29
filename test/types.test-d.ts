@@ -38,11 +38,22 @@ const nestedForm = new Form({
 
 // Test path type inference - estos deberían ser válidos
 expectTypeOf(nestedForm.getValueByPath('user.name')).toEqualTypeOf<string>();
-expectTypeOf(nestedForm.getValueByPath('user.address.street')).toEqualTypeOf<string>();
-expectTypeOf(nestedForm.getValueByPath('user.address.city')).toEqualTypeOf<string>();
-expectTypeOf(nestedForm.getValueByPath('user.address.coordinates.lat')).toEqualTypeOf<number>();
-expectTypeOf(nestedForm.getValueByPath('user.address.coordinates.lng')).toEqualTypeOf<number>();
-expectTypeOf(nestedForm.getValueByPath('metadata')).toEqualTypeOf<{ created: Date; version: number }>();
+expectTypeOf(
+	nestedForm.getValueByPath('user.address.street')
+).toEqualTypeOf<string>();
+expectTypeOf(
+	nestedForm.getValueByPath('user.address.city')
+).toEqualTypeOf<string>();
+expectTypeOf(
+	nestedForm.getValueByPath('user.address.coordinates.lat')
+).toEqualTypeOf<number>();
+expectTypeOf(
+	nestedForm.getValueByPath('user.address.coordinates.lng')
+).toEqualTypeOf<number>();
+expectTypeOf(nestedForm.getValueByPath('metadata')).toEqualTypeOf<{
+	created: Date;
+	version: number;
+}>();
 
 // Test que paths inválidos den error de tipo
 // @ts-expect-error - Path 'user.nonexistent' should not exist
@@ -59,10 +70,14 @@ nestedForm.getValueByPath('user.address.coordinates.invalid');
 
 // Test setValueByPath type safety
 const updatedForm1 = nestedForm.setValueByPath('user.name', 'Jane');
-expectTypeOf(updatedForm1).toEqualTypeOf<Form<typeof nestedForm.getForm()>>();
+expectTypeOf(updatedForm1).toEqualTypeOf(nestedForm);
 
-const updatedForm2 = nestedForm.setValueByPath('user.address.coordinates.lat', 41.8781);
-expectTypeOf(updatedForm2).toEqualTypeOf<Form<typeof nestedForm.getForm()>>();
+const updatedForm2 = nestedForm.setValueByPath(
+	'user.address.coordinates.lat',
+	41.8781
+);
+
+expectTypeOf(updatedForm2).toEqualTypeOf(nestedForm);
 
 // Test que setValueByPath rechace tipos incorrectos
 // @ts-expect-error - string expected, number given
@@ -81,7 +96,7 @@ const simpleForm = new Form({
 });
 
 const updatedSimple = simpleForm.setValueByPath('name', 'Jane');
-expectTypeOf(updatedSimple).toEqualTypeOf<Form<typeof simpleForm.getForm()>>();
+expectTypeOf(updatedSimple).toEqualTypeOf<typeof simpleForm>();
 
 // Test que setFieldValue rechace tipos incorrectos
 // @ts-expect-error - string expected
@@ -122,15 +137,14 @@ expectTypeOf<'user.profile.settings.theme'>().toMatchTypeOf<string>();
 // Alternative approach for testing path string literals
 const validPaths = [
 	'user',
-	'count', 
+	'count',
 	'user.name',
 	'user.profile',
 	'user.profile.bio',
 	'user.profile.settings',
-	'user.profile.settings.theme'
+	'user.profile.settings.theme',
 ] as const;
 
-validPaths.forEach(path => {
+validPaths.forEach((path) => {
 	expectTypeOf(path).toMatchTypeOf<string>();
 });
-
