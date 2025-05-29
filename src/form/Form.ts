@@ -6,30 +6,7 @@ type FailedMessage = {
 
 type ValueValidator<R> = (value: R) => Either<FailedMessage, R>;
 
-
 type FormTree = Record<string, FormField<any> | FormFieldGroup<any>>;
-
-class FormField<R> {
-	private validators: ValueValidator<R>[];
-
-	constructor(
-		private value: R,
-		validators: ValueValidator<R>[] | ValueValidator<R> = []
-	) {
-		this.validators = Array.isArray(validators) ? validators : [validators];
-	}
-
-	getValue = (): R => this.value;
-
-	validate = (): Either<FailedMessage, R> =>
-		this.validators.reduce<Either<FailedMessage, R>>(
-			(acc, validator) => acc.chain(validator),
-			right(this.value)
-		);
-
-	setNewValue = (newValue: R): FormField<R> =>
-		new FormField(newValue, this.validators);
-}
 
 type Path<T extends FormTree> = {
 	[K in keyof T]: T[K] extends FormField<any>
@@ -58,6 +35,8 @@ type PathValue<
 
 abstract class FormBase<T extends FormTree> {
 	protected constructor(protected fields: T) {}
+
+	protected abstract createInstance(fields: T): FormBase<T>;
 
 	getValueByPath = <P extends Path<T>>(path: P): PathValue<T, P> => {
 		const pathArray = path.split('.');
@@ -88,10 +67,10 @@ abstract class FormBase<T extends FormTree> {
 		return this.getNestedValue(current, tail);
 	};
 
-	setValueByPath = <P extends Path<T>>(
+	protected internalSetValueByPath = <P extends Path<T>>(
 		path: P,
 		newValue: PathValue<T, P>
-	): this => {
+	): FormBase<T> => {
 		const pathArray = path.split('.');
 		const updatedFields = this.updateNestedField(
 			this.fields,
@@ -101,41 +80,62 @@ abstract class FormBase<T extends FormTree> {
 		return this.createInstance(updatedFields);
 	};
 
-	 private updateNestedField = <Obj extends FormTree, P extends Path<Obj>>(
-        obj: Obj,
-        path: string[],
-        newValue: PathValue<Obj, P>
-    ): Obj => {
-        if (path.length === 0) {
-            throw new Error('Invalid path: cannot replace entire object');
-        }
+	private updateNestedField = <Obj extends FormTree, P extends Path<Obj>>(
+		obj: Obj,
+		path: string[],
+		newValue: PathValue<Obj, P>
+	): Obj => {
+		if (path.length === 0) {
+			throw new Error('Invalid path: cannot replace entire object');
+		}
 
-        const [head, ...tail] = path;
-        if (!(head in obj)) {
-            throw new Error(`Invalid path: key '${head}' not found`);
-        }
+		const [head, ...tail] = path;
+		if (!(head in obj)) {
+			throw new Error(`Invalid path: key '${head}' not found`);
+		}
 
-        const key = head as keyof Obj;
-        const current = obj[key];
+		const key = head as keyof Obj;
+		const current = obj[key];
 
-        if (current instanceof FormField) {
-            if (tail.length === 0) {
-                return { ...obj, [key]: current.setNewValue(newValue) };
-            }
-            throw new Error(`Cannot traverse deeper into FormField at ${head}`);
-        }
+		if (current instanceof FormField) {
+			if (tail.length === 0) {
+				return { ...obj, [key]: current.setNewValue(newValue) };
+			}
+			throw new Error(`Cannot traverse deeper into FormField at ${head}`);
+		}
 
-        if (current instanceof FormFieldGroup) {
-            return {
-                ...obj,
-                [key]: current.setValueByPath(tail.join('.') as any, newValue),
-            };
-        }
+		if (current instanceof FormFieldGroup) {
+			return {
+				...obj,
+				[key]: current.internalSetValueByPath(tail.join('.'), newValue),
+			};
+		}
 
-        throw new Error(`Unsupported field type at path: ${head}`);
-    };
+		throw new Error(`Unsupported field type at path: ${head}`);
+	};
+}
 
-	protected abstract createInstance(fields: T): this;
+class FormField<R> {
+	private validators: ValueValidator<R>[];
+
+	constructor(
+		private value: R,
+		validators: ValueValidator<R>[] | ValueValidator<R> = []
+	) {
+		this.validators = Array.isArray(validators) ? validators : [validators];
+	}
+
+	getValue = (): R => this.value;
+
+	validate = (): Either<FailedMessage, R> =>
+		this.validators.reduce<Either<FailedMessage, R>>(
+			(acc, validator) => acc.chain(validator),
+			right(this.value)
+		);
+
+	setNewValue(value: R): FormField<R> {
+		return new FormField(value, this.validators);
+	}
 }
 
 class FormFieldGroup<T extends FormTree> extends FormBase<T> {
@@ -178,8 +178,8 @@ class FormFieldGroup<T extends FormTree> extends FormBase<T> {
 		return fieldValidations.chain(() => groupValidations);
 	};
 
-	protected createInstance(fields: T): this {
-		return new FormFieldGroup(fields, this.groupValidators) as this;
+	createInstance(formFields: T): FormFieldGroup<T> {
+		return new FormFieldGroup(formFields, this.groupValidators);
 	}
 }
 
@@ -223,8 +223,16 @@ class Form<T extends FormTree> extends FormBase<T> {
 		return fieldValidations.chain(() => formValidations);
 	};
 
-	protected createInstance(fields: T): this {
-		return new Form(fields, this.formValidators) as this;
+	setValueByPath = <P extends Path<T>>(
+		path: P,
+		newValue: PathValue<T, P>
+	): Form<T> => {
+		const updatedForm = this.internalSetValueByPath(path, newValue);
+		return new Form(updatedForm['fields'], this.formValidators);
+	};
+
+	protected createInstance(fields: T): FormBase<T> {
+		return new Form(fields, this.formValidators);
 	}
 }
 
