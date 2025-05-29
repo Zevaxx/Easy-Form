@@ -224,141 +224,151 @@ describe('Type Tests with expect-type', () => {
 			complexForm.getValueByPath('config.settings.allowDuplicates')
 		).toEqualTypeOf<boolean>();
 	});
-});
 
-describe('Form Types', () => {
-	describe('FormField', () => {
-		it('should correctly infer primitive types', () => {
-			const stringField = new FormField('hello');
-			expectTypeOf(stringField.getValue()).toEqualTypeOf<string>();
+	describe('Form Types', () => {
+		describe('FormField', () => {
+			it('should correctly infer primitive types', () => {
+				const stringField = new FormField('hello');
+				expectTypeOf(stringField.getValue()).toEqualTypeOf<string>();
 
-			const numberField = new FormField(42);
-			expectTypeOf(numberField.getValue()).toEqualTypeOf<number>();
-		});
-	});
-
-	describe('FormFieldGroup', () => {
-		it('should correctly infer field types in a group', () => {
-			const userGroup = new FormFieldGroup({
-				name: new FormField('John'),
-				age: new FormField(25),
-				email: new FormField('john@example.com'),
+				const numberField = new FormField(42);
+				expectTypeOf(numberField.getValue()).toEqualTypeOf<number>();
 			});
-
-			const userFields = userGroup.getFields();
-			expectTypeOf(userFields.name).toEqualTypeOf<FormField<string>>();
-			expectTypeOf(userFields.age).toEqualTypeOf<FormField<number>>();
-			expectTypeOf(userFields.email).toEqualTypeOf<FormField<string>>();
 		});
-	});
 
-	describe('Nested Forms', () => {
-		const nestedForm = new Form({
-			user: new FormFieldGroup({
-				name: new FormField('John'),
-				address: new FormFieldGroup({
-					street: new FormField('123 Main St'),
-					city: new FormField('New York'),
-					coordinates: new FormFieldGroup({
-						lat: new FormField(40.7128),
-						lng: new FormField(-74.006),
+		describe('FormFieldGroup', () => {
+			it('should correctly infer field types in a group', () => {
+				const userGroup = new FormFieldGroup({
+					name: new FormField('John'),
+					age: new FormField(25),
+					email: new FormField('john@example.com'),
+				});
+
+				const userFields = userGroup.getFields();
+				expectTypeOf(userFields.name).toEqualTypeOf<
+					FormField<string>
+				>();
+				expectTypeOf(userFields.age).toEqualTypeOf<FormField<number>>();
+				expectTypeOf(userFields.email).toEqualTypeOf<
+					FormField<string>
+				>();
+			});
+		});
+
+		describe('Nested Forms', () => {
+			const nestedForm = new Form({
+				user: new FormFieldGroup({
+					name: new FormField('John'),
+					address: new FormFieldGroup({
+						street: new FormField('123 Main St'),
+						city: new FormField('New York'),
+						coordinates: new FormFieldGroup({
+							lat: new FormField(40.7128),
+							lng: new FormField(-74.006),
+						}),
 					}),
 				}),
-			}),
-			metadata: new FormField({ created: new Date(), version: 1 }),
-		});
+				metadata: new FormField({ created: new Date(), version: 1 }),
+			});
 
-		describe('getValueByPath', () => {
-			it('should correctly infer types for valid paths', () => {
-				expectTypeOf(
-					nestedForm.getValueByPath('user.name')
-				).toEqualTypeOf<string>();
-				expectTypeOf(
-					nestedForm.getValueByPath('user.address.street')
-				).toEqualTypeOf<string>();
-				expectTypeOf(
-					nestedForm.getValueByPath('user.address.city')
-				).toEqualTypeOf<string>();
-				expectTypeOf(
-					nestedForm.getValueByPath('user.address.coordinates.lat')
-				).toEqualTypeOf<number>();
-				expectTypeOf(
-					nestedForm.getValueByPath('user.address.coordinates.lng')
-				).toEqualTypeOf<number>();
-				expectTypeOf(
-					nestedForm.getValueByPath('metadata')
-				).toEqualTypeOf<{
-					created: Date;
-					version: number;
-				}>();
+			describe('getValueByPath', () => {
+				it('should correctly infer types for valid paths', () => {
+					expectTypeOf(
+						nestedForm.getValueByPath('user.name')
+					).toEqualTypeOf<string>();
+					expectTypeOf(
+						nestedForm.getValueByPath('user.address.street')
+					).toEqualTypeOf<string>();
+					expectTypeOf(
+						nestedForm.getValueByPath('user.address.city')
+					).toEqualTypeOf<string>();
+					expectTypeOf(
+						nestedForm.getValueByPath(
+							'user.address.coordinates.lat'
+						)
+					).toEqualTypeOf<number>();
+					expectTypeOf(
+						nestedForm.getValueByPath(
+							'user.address.coordinates.lng'
+						)
+					).toEqualTypeOf<number>();
+					expectTypeOf(
+						nestedForm.getValueByPath('metadata')
+					).toEqualTypeOf<{
+						created: Date;
+						version: number;
+					}>();
+				});
+			});
+
+			describe('setValueByPath', () => {
+				it('should maintain type safety for valid updates', () => {
+					const updatedForm1 = nestedForm.setValueByPath(
+						'user.name',
+						'Jane'
+					);
+					expectTypeOf(updatedForm1).toEqualTypeOf(nestedForm);
+
+					const updatedForm2 = nestedForm.setValueByPath(
+						'user.address.coordinates.lat',
+						41.8781
+					);
+					expectTypeOf(updatedForm2).toEqualTypeOf(nestedForm);
+				});
 			});
 		});
 
-		describe('setValueByPath', () => {
-			it('should maintain type safety for valid updates', () => {
-				const updatedForm1 = nestedForm.setValueByPath(
+		describe('Simple Forms', () => {
+			const simpleForm = new Form({
+				name: new FormField('John'),
+				age: new FormField(25),
+			});
+
+			it('should handle first-level field updates correctly', () => {
+				const updatedSimple = simpleForm.setValueByPath('name', 'Jane');
+				expectTypeOf(updatedSimple).toEqualTypeOf<typeof simpleForm>();
+			});
+		});
+
+		describe('Validators', () => {
+			it('should correctly type validate fields with validators', () => {
+				const stringValidator = (
+					value: string
+				): Either<{ message: string }, string> =>
+					({
+						isRight: () => true,
+						isLeft: () => false,
+						value: value,
+						chain: () => stringValidator(value),
+						map: () => stringValidator(value),
+					} as any);
+
+				const fieldWithValidator = new FormField(
+					'test',
+					stringValidator
+				);
+				expectTypeOf(
+					fieldWithValidator.getValue()
+				).toEqualTypeOf<string>();
+			});
+		});
+
+		describe('Path Types', () => {
+			it('should allow valid path types', () => {
+				const validPaths = [
+					'user',
+					'count',
 					'user.name',
-					'Jane'
-				);
-				expectTypeOf(updatedForm1).toEqualTypeOf(nestedForm);
+					'user.profile',
+					'user.profile.bio',
+					'user.profile.settings',
+					'user.profile.settings.theme',
+				] as const;
 
-				const updatedForm2 = nestedForm.setValueByPath(
-					'user.address.coordinates.lat',
-					41.8781
-				);
-				expectTypeOf(updatedForm2).toEqualTypeOf(nestedForm);
-			});
-
-		});
-	});
-
-	describe('Simple Forms', () => {
-		const simpleForm = new Form({
-			name: new FormField('John'),
-			age: new FormField(25),
-		});
-
-		it('should handle first-level field updates correctly', () => {
-			const updatedSimple = simpleForm.setValueByPath('name', 'Jane');
-			expectTypeOf(updatedSimple).toEqualTypeOf<typeof simpleForm>();
-		});
-	});
-
-	describe('Validators', () => {
-		it('should correctly type validate fields with validators', () => {
-			const stringValidator = (
-				value: string
-			): Either<{ message: string }, string> =>
-				({
-					isRight: () => true,
-					isLeft: () => false,
-					value: value,
-					chain: () => stringValidator(value),
-					map: () => stringValidator(value),
-				} as any);
-
-			const fieldWithValidator = new FormField('test', stringValidator);
-			expectTypeOf(fieldWithValidator.getValue()).toEqualTypeOf<string>();
-
-		});
-	});
-
-	describe('Path Types', () => {
-		it('should allow valid path types', () => {
-			const validPaths = [
-				'user',
-				'count',
-				'user.name',
-				'user.profile',
-				'user.profile.bio',
-				'user.profile.settings',
-				'user.profile.settings.theme',
-			] as const;
-
-			validPaths.forEach((path) => {
-				expectTypeOf(path).toMatchTypeOf<string>();
+				validPaths.forEach((path) => {
+					expectTypeOf(path).toMatchTypeOf<string>();
+				});
 			});
 		});
 	});
 });
-
