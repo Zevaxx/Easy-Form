@@ -3,7 +3,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"author": "Sebastián Díaz <sebastian88@gmail.com>",
-	"description": "A simple form library for React",
+	"description": "A simple form library",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"module": "dist/index.esm.js",
@@ -16,12 +16,9 @@
 		"url": "https://github.com/Zevaxx/Easy-Form"
 	},
 	"scripts": {
+		"build": "tsc",
 		"test": "vitest",
-		"test:types": "tsd",
-		"test:watch": "vitest --watch",
-		"test:ui": "vitest --ui",
-		"test:all": "npm run test && npm run test:types",
-		"type-check": "tsc --noEmit"
+		"test:ui": "vitest --ui"
 	},
 	"dependencies": {
 		"@sweet-monads/either": "^3.3.1"

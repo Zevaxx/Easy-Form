@@ -1,5 +1,5 @@
 import { expectType, expectError, expectAssignable } from 'tsd';
-import { Form, FormField, FormFieldGroup } from '../form/Form';
+import { Form, FormField, FormFieldGroup } from '../src/form/Form';
 
 // Test FormField type inference
 const stringField = new FormField('hello');
@@ -55,7 +55,7 @@ expectError(nestedForm.getValueByPath('user.address.coordinates.invalid'));
 // Test setValueByPath type safety
 const updatedForm1 = nestedForm.setValueByPath('user.name', 'Jane');
 
-expectType<Form<typeof nestedForm.getForm()>>(updatedForm1);
+expectType < Form < typeof nestedForm.getForm() >> updatedForm1;
 
 const updatedForm2 = nestedForm.setValueByPath(
 	'user.address.coordinates.lat',

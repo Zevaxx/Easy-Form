@@ -2,15 +2,6 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	test: {
-		environment: 'node',
-		globals: true,
-		coverage: {
-			reporter: ['text', 'json', 'html'],
-			exclude: ['node_modules/', 'src/test/', '**/*.d.ts'],
-		},
-		typecheck: {
-			enabled: true,
-			tsconfig: './tsconfig.json',
-		},
-	}
+		include: ['test/**/*.ts'],
+	},
 });

@@ -1,6 +1,6 @@
 import { expectTypeOf } from 'expect-type';
 import { describe, it } from 'vitest';
-import { Form, FormField, FormFieldGroup } from '../form/Form';
+import { Form, FormField, FormFieldGroup } from '../src/form/Form';
 
 describe('Type Tests with expect-type', () => {
 	it('should infer FormField types correctly', () => {

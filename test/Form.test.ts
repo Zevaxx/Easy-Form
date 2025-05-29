@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { left, right } from '@sweet-monads/either';
-import { Form, FormField, FormFieldGroup } from '../form/Form';
+import { Form, FormField, FormFieldGroup } from '../src/form/Form';
 
 describe('Form Validation', () => {
 	// Simple field validator
