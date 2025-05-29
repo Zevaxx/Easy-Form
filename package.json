@@ -16,9 +16,10 @@
 		"url": "https://github.com/Zevaxx/Easy-Form"
 	},
 	"scripts": {
-		"build": "tsc",
 		"test": "vitest",
-		"test:ui": "vitest --ui"
+		"test:ui": "vitest --ui",
+		"test:types": "tsc --noEmit",
+		"test:all": "npm run test && npm run test:types"
 	},
 	"dependencies": {
 		"@sweet-monads/either": "^3.3.1"
