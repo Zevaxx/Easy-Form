@@ -25,33 +25,35 @@ import { Form, FormField, FormFieldGroup } from './form';
 import { left, right } from '@sweet-monads/either';
 
 // Define validators
-const notEmpty = (value: string) => 
+const notEmpty = (value: string) =>
   value.length > 0 
-    ? right(value) 
+    ? right(value)
     : left({ message: 'Field cannot be empty' });
 
-const isAdult = (value: number) =>
-  value >= 18
-    ? right(value)
-    : left({ message: 'Must be 18 or older' });
+
 
 // Create a form with nested structure
-const userForm = new Form({
-  name: new FormField('', notEmpty),
-  age: new FormField(25, isAdult),
-  address: new FormFieldGroup({
-    street: new FormField('', notEmpty),
-    city: new FormField('', notEmpty)
+const form = new Form({
+  user: new FormFieldGroup({
+    name: new FormField('John', notEmpty),
+    profile: new FormFieldGroup({
+      bio: new FormField('Developer'),
+      settings: new FormFieldGroup({
+        theme: new FormField('dark')
+      })
+    })
   })
 });
 
+// Get values using type-safe paths
+const name = form.getValueByPath('user.name');
+const theme = form.getValueByPath('user.profile.settings.theme');
+
 // Update values using type-safe paths
-const updatedForm = userForm
-  .setValueByPath('name', 'John')
-  .setValueByPath('address.street', '123 Main St');
+const updatedForm = form.setValueByPath('user.name', 'Jane');
 
 // Validate the entire form
-const result = updatedForm.validateForm();
+const result = form.validateForm();
 ```
 
 ## API Reference
@@ -61,7 +63,7 @@ const result = updatedForm.validateForm();
 Basic form field that holds a single value with optional validators:
 
 ```typescript
-const nameField = new FormField('', notEmpty);
+const nameField = new FormField('John', notEmpty);
 const ageField = new FormField(25, isAdult);
 ```
 
@@ -70,10 +72,12 @@ const ageField = new FormField(25, isAdult);
 Groups related fields with optional group-level validation:
 
 ```typescript
-const addressGroup = new FormFieldGroup({
-  street: new FormField(''),
-  city: new FormField('')
-}, validateAddressGroup);
+const userGroup = new FormFieldGroup({
+  name: new FormField('John'),
+  address: new FormFieldGroup({
+    street: new FormField('123 Main St')
+  })
+});
 ```
 
 ### Form
@@ -83,10 +87,10 @@ Top-level form container with form-wide validation:
 ```typescript
 const form = new Form({
   user: new FormFieldGroup({
-    name: new FormField(''),
-    email: new FormField('')
+    name: new FormField('John'),
+    age: new FormField(25)
   })
-}, validateUserForm);
+});
 ```
 
 ### Path-based Operations
@@ -96,12 +100,10 @@ Access and update nested values using type-safe paths:
 ```typescript
 // Get values
 const name = form.getValueByPath('user.name');
-const email = form.getValueByPath('user.email');
+const age = form.getValueByPath('user.age');
 
 // Update values
-const updated = form
-  .setValueByPath('user.name', 'John')
-  .setValueByPath('user.email', 'john@example.com');
+const updated = form.setValueByPath('user.name', 'Jane');
 ```
 
 ## Type Safety
@@ -112,3 +114,5 @@ The library provides complete type inference for:
 - Validation results
 - Path strings
 - Update operations
+
+All operations maintain type safety through the entire form hierarchy.
