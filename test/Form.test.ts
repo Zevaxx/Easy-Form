@@ -178,7 +178,6 @@ describe('FormField', () => {
 			expect(result.value.message).toBe('Too short');
 		}
 	});
-
 });
 
 describe('FormFieldGroup', () => {
