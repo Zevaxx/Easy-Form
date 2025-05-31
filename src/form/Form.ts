@@ -8,28 +8,34 @@ type ValueValidator<R> = (value: R) => Either<FailedMessage, R>;
 
 type FormTree = Record<string, FormField<any> | FormFieldGroup<any>>;
 
-type Path<T extends FormTree> = {
-	[K in keyof T]: T[K] extends FormField<any>
-		? `${K & string}`
-		: T[K] extends FormFieldGroup<infer G>
-		? `${K & string}.${Path<G>}`
-		: never;
-}[keyof T];
+type IsField<T> = T extends FormField<any> ? true : false;
+
+type IsGroup<T> = T extends FormFieldGroup<infer G> ? G : never;
+
+type PathForKey<K extends string, V> = IsField<V> extends true
+	? K
+	: IsGroup<V> extends never
+	? never
+	: `${K}.${Path<IsGroup<V>>}`;
+
+export type Path<T extends FormTree> = {
+	[K in Extract<keyof T, string>]: PathForKey<K, T[K]>;
+}[Extract<keyof T, string>];
+
+type ExtractGroup<T> = T extends FormFieldGroup<infer G> ? G : never;
+
+type ExtractValue<T> = T extends FormField<infer V> ? V : never;
 
 type PathValue<
 	T extends FormTree,
 	P extends string
 > = P extends `${infer Head}.${infer Tail}`
 	? Head extends keyof T
-		? T[Head] extends FormFieldGroup<infer G>
-			? PathValue<G, Tail>
-			: never
+		? PathValue<ExtractGroup<T[Head]>, Tail>
 		: never
 	: P extends keyof T
-	? T[P] extends FormField<infer V>
-		? V
-		: T[P] extends FormFieldGroup<infer G>
-		? G
+	? T[P] extends FormField<any>
+		? ExtractValue<T[P]>
 		: never
 	: never;
 
